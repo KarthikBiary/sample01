@@ -1,5 +1,5 @@
 # Sensor Failure Prediction System
-## Student Project Report
+## Project Report
 
 ### 1. Introduction
 
