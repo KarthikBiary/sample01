@@ -8,6 +8,10 @@ from sklearn.metrics import classification_report, confusion_matrix, accuracy_sc
 import matplotlib.pyplot as plt
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 import seaborn as sns
+import threading
+import queue
+import time
+import random
 
 class SensorAnalysisApp:
     def __init__(self, root):
@@ -26,15 +30,18 @@ class SensorAnalysisApp:
         self.data_tab = ttk.Frame(self.notebook)
         self.model_tab = ttk.Frame(self.notebook)
         self.predict_tab = ttk.Frame(self.notebook)
+        self.real_time_tab = ttk.Frame(self.notebook)
         
         self.notebook.add(self.data_tab, text="Data")
         self.notebook.add(self.model_tab, text="Model")
         self.notebook.add(self.predict_tab, text="Predict")
+        self.notebook.add(self.real_time_tab, text="Real-Time Monitor") 
         
         # Setup each tab
         self.setup_data_tab()
         self.setup_model_tab()
         self.setup_predict_tab()
+        self.setup_real_time_tab()
     
     def setup_data_tab(self):
         load_frame = ttk.LabelFrame(self.data_tab, text="Load Data")
@@ -428,6 +435,198 @@ class SensorAnalysisApp:
             
         except Exception as e:
             messagebox.showerror("Error", f"Failed to make prediction: {str(e)}")
+            
+    def setup_real_time_tab(self):
+        # Monitoring Configuration Frame
+        config_frame = ttk.LabelFrame(self.real_time_tab, text="Monitoring Configuration")
+        config_frame.pack(fill=tk.X, padx=10, pady=10)
+
+        # Simulate Checkbox
+        self.simulate_var = tk.BooleanVar(value=False)
+        simulate_check = ttk.Checkbutton(config_frame, text="Simulate Sensor Data", variable=self.simulate_var)
+        simulate_check.pack(side=tk.LEFT, padx=10, pady=10)
+
+        # Sampling Rate
+        ttk.Label(config_frame, text="Sampling Rate (seconds):").pack(side=tk.LEFT, padx=10, pady=10)
+        self.sampling_rate_var = tk.IntVar(value=1)
+        sampling_rate_spin = ttk.Spinbox(config_frame, from_=1, to=10, textvariable=self.sampling_rate_var, width=5)
+        sampling_rate_spin.pack(side=tk.LEFT, padx=10, pady=10)
+
+        # Start/Stop Monitoring Buttons
+        self.start_monitor_button = ttk.Button(config_frame, text="Start Monitoring", command=self.start_real_time_monitoring)
+        self.start_monitor_button.pack(side=tk.LEFT, padx=10, pady=10)
+
+        self.stop_monitor_button = ttk.Button(config_frame, text="Stop Monitoring", command=self.stop_real_time_monitoring, state=tk.DISABLED)
+        self.stop_monitor_button.pack(side=tk.LEFT, padx=10, pady=10)
+
+        # Real-time Sensor Data Frame
+        sensor_frame = ttk.LabelFrame(self.real_time_tab, text="Current Sensor Readings")
+        sensor_frame.pack(fill=tk.X, padx=10, pady=10)
+
+        # Create labels for various sensor readings
+        sensor_labels = [
+            'Battery Voltage', 'Engine Temp', 'Tire Pressure', 
+            'Vibration', 'Speed', 'Brake Wear'
+        ]
+        self.sensor_value_vars = {}
+        self.sensor_label_widgets = {}
+
+        for i, label_text in enumerate(sensor_labels):
+            ttk.Label(sensor_frame, text=f"{label_text}:").grid(row=i//3, column=(i%3)*2, padx=5, pady=5, sticky='e')
+            var = tk.StringVar(value="N/A")
+            self.sensor_value_vars[label_text] = var
+            label_widget = ttk.Label(sensor_frame, textvariable=var, width=10)
+            label_widget.grid(row=i//3, column=(i%3)*2 + 1, padx=5, pady=5)
+            self.sensor_label_widgets[label_text] = label_widget
+
+        # Prediction Result Frame
+        self.real_time_prediction_frame = ttk.LabelFrame(self.real_time_tab, text="Real-Time Prediction")
+        self.real_time_prediction_frame.pack(fill=tk.X, padx=10, pady=10)
+
+        self.real_time_prediction_label = ttk.Label(self.real_time_prediction_frame, text="No prediction", font=("Arial", 12))
+        self.real_time_prediction_label.pack(padx=10, pady=5)
+
+        self.real_time_probability_bar = ttk.Progressbar(self.real_time_prediction_frame, length=400, mode='determinate')
+        self.real_time_probability_bar.pack(padx=10, pady=5)
+
+        self.real_time_probability_label = ttk.Label(self.real_time_prediction_frame, text="0%")
+        self.real_time_probability_label.pack(padx=10, pady=5)
+
+        # Monitoring control flags and queue
+        self.monitoring_active = False
+        self.monitoring_queue = queue.Queue()
+        self.monitoring_thread = None
+
+    def generate_simulated_sensor_data(self):
+        """Generate simulated sensor data for testing."""
+        return {
+            'Battery Voltage': round(np.random.normal(12.5, 1.5), 2),
+            'Engine Temp': round(np.random.normal(85, 15), 2),
+            'Tire Pressure': round(np.random.normal(32, 5), 2),
+            'Vibration': round(np.random.normal(1.5, 1.0), 2),
+            'Speed': round(np.random.normal(45, 20), 2),
+            'Brake Wear': round(np.random.normal(0, 0.8), 2)
+        }
+
+    def real_time_monitoring_thread(self):
+        """Thread function for continuous monitoring."""
+        while self.monitoring_active:
+            try:
+                # Simulate or use actual sensor data based on checkbox
+                if self.simulate_var.get():
+                    sensor_data = self.generate_simulated_sensor_data()
+                else:
+                    # TODO: Replace with actual sensor data acquisition
+                    sensor_data = self.generate_simulated_sensor_data()
+
+                # Make prediction if model is available
+                if self.model is not None:
+                    prediction_data = pd.DataFrame([{
+                        'battery_voltage': sensor_data['Battery Voltage'],
+                        'engine_temp': sensor_data['Engine Temp'],
+                        'tire_pressure': sensor_data['Tire Pressure'],
+                        'vibration': sensor_data['Vibration'],
+                        'speed': sensor_data['Speed'],
+                        'brake_wear': sensor_data['Brake Wear'],
+                        # Add other required features with default/calculated values
+                        'suspension_shocks': 0,
+                        'hour': time.localtime().tm_hour,
+                        'day_of_week': time.localtime().tm_wday,
+                        'month': time.localtime().tm_mon,
+                        'battery_voltage_ma': sensor_data['Battery Voltage'],
+                        'engine_temp_ma': sensor_data['Engine Temp'],
+                        'vibration_ma': sensor_data['Vibration']
+                    }])
+
+                    prediction_data = prediction_data[self.X_columns]
+                    prediction = self.model.predict(prediction_data)
+                    prediction_proba = self.model.predict_proba(prediction_data)
+                else:
+                    prediction = [0]
+                    prediction_proba = [[0, 0]]
+
+                # Put data and prediction to queue
+                self.monitoring_queue.put((sensor_data, prediction[0], prediction_proba[0][1]))
+
+                # Sleep for specified sampling rate
+                time.sleep(self.sampling_rate_var.get())
+
+            except Exception as e:
+                print(f"Monitoring thread error: {e}")
+                break
+
+    def update_real_time_display(self):
+        """Update GUI with latest monitoring data."""
+        try:
+            while not self.monitoring_queue.empty():
+                sensor_data, prediction, probability = self.monitoring_queue.get_nowait()
+
+                # Update sensor reading labels
+                for label, value in sensor_data.items():
+                    self.sensor_value_vars[label].set(str(value))
+
+                # Update prediction
+                if prediction == 1:
+                    self.real_time_prediction_label.config(text="⚠️ FAILURE PREDICTED", foreground="red")
+                else:
+                    self.real_time_prediction_label.config(text="✓ NO FAILURE PREDICTED", foreground="green")
+
+                # Update probability
+                prob_percentage = probability * 100
+                self.real_time_probability_bar['value'] = prob_percentage
+                self.real_time_probability_label.config(text=f"{prob_percentage:.1f}%")
+
+        except queue.Empty:
+            pass
+
+        # Schedule next update if monitoring is active
+        if self.monitoring_active:
+            self.root.after(500, self.update_real_time_display)
+
+    def start_real_time_monitoring(self):
+        """Start real-time monitoring."""
+        if self.model is None:
+            messagebox.showwarning("Warning", "Please train a model first.")
+            return
+
+        # Check if monitoring is already active
+        if self.monitoring_active:
+            return
+
+        # Prepare for monitoring
+        self.monitoring_active = True
+        self.monitoring_queue = queue.Queue()
+
+        # Update button states
+        self.start_monitor_button.config(state=tk.DISABLED)
+        self.stop_monitor_button.config(state=tk.NORMAL)
+
+        # Start monitoring thread
+        self.monitoring_thread = threading.Thread(target=self.real_time_monitoring_thread, daemon=True)
+        self.monitoring_thread.start()
+
+        # Start display update
+        self.update_real_time_display()
+
+    def stop_real_time_monitoring(self):
+        """Stop real-time monitoring."""
+        # Stop monitoring thread
+        self.monitoring_active = False
+        if self.monitoring_thread and self.monitoring_thread.is_alive():
+            self.monitoring_thread.join(timeout=2)
+
+        # Reset button states
+        self.start_monitor_button.config(state=tk.NORMAL)
+        self.stop_monitor_button.config(state=tk.DISABLED)
+
+        # Reset labels
+        for var in self.sensor_value_vars.values():
+            var.set("N/A")
+
+        self.real_time_prediction_label.config(text="No prediction", foreground="black")
+        self.real_time_probability_bar['value'] = 0
+        self.real_time_probability_label.config(text="0%")
+
 
 
 if __name__ == "__main__":
