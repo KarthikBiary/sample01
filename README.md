@@ -1,3 +1,53 @@
+    Realistic Patterns:
+
+        Gradual battery degradation with daily recharge cycles
+
+        Engine temperature correlated with speed
+
+        Progressive brake wear
+
+        Slow tire pressure leaks
+
+    Anomalies & Failures:
+
+        Sudden battery voltage drops
+
+        Engine overheating events
+
+        Random vibration spikes
+
+        Monthly tire pressure anomalies
+
+    Maintenance Events:
+
+        Simulated battery replacements
+
+        Daily tire inflation
+
+    Failure Labels:
+
+        Binary failure column indicating abnormal conditions
+
+Dataset Columns:
+
+    timestamp: DateTime index
+
+    battery_voltage: Simulated battery state (Volts)
+
+    engine_temp: Engine temperature (°C)
+
+    tire_pressure: Tire pressure (PSI)
+
+    vibration: Vibration levels (arbitrary units)
+
+    speed: Vehicle speed (km/h)
+
+    brake_wear: Brake pad wear percentage
+
+    suspension_shocks: Shock absorption events
+
+    failure: Binary failure indicator (0 = normal, 1 = failure)
+
 Explanation of the Code
 1. Preprocess the Data
 
