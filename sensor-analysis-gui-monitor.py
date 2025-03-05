@@ -437,33 +437,27 @@ class SensorAnalysisApp:
             messagebox.showerror("Error", f"Failed to make prediction: {str(e)}")
             
     def setup_real_time_tab(self):
-        # Monitoring Configuration Frame
         config_frame = ttk.LabelFrame(self.real_time_tab, text="Monitoring Configuration")
         config_frame.pack(fill=tk.X, padx=10, pady=10)
 
-        # Simulate Checkbox
         self.simulate_var = tk.BooleanVar(value=False)
         simulate_check = ttk.Checkbutton(config_frame, text="Simulate Sensor Data", variable=self.simulate_var)
         simulate_check.pack(side=tk.LEFT, padx=10, pady=10)
 
-        # Sampling Rate
         ttk.Label(config_frame, text="Sampling Rate (seconds):").pack(side=tk.LEFT, padx=10, pady=10)
         self.sampling_rate_var = tk.IntVar(value=1)
         sampling_rate_spin = ttk.Spinbox(config_frame, from_=1, to=10, textvariable=self.sampling_rate_var, width=5)
         sampling_rate_spin.pack(side=tk.LEFT, padx=10, pady=10)
 
-        # Start/Stop Monitoring Buttons
         self.start_monitor_button = ttk.Button(config_frame, text="Start Monitoring", command=self.start_real_time_monitoring)
         self.start_monitor_button.pack(side=tk.LEFT, padx=10, pady=10)
 
         self.stop_monitor_button = ttk.Button(config_frame, text="Stop Monitoring", command=self.stop_real_time_monitoring, state=tk.DISABLED)
         self.stop_monitor_button.pack(side=tk.LEFT, padx=10, pady=10)
 
-        # Real-time Sensor Data Frame
         sensor_frame = ttk.LabelFrame(self.real_time_tab, text="Current Sensor Readings")
         sensor_frame.pack(fill=tk.X, padx=10, pady=10)
 
-        # Create labels for various sensor readings
         sensor_labels = [
             'Battery Voltage', 'Engine Temp', 'Tire Pressure', 
             'Vibration', 'Speed', 'Brake Wear'
@@ -479,7 +473,6 @@ class SensorAnalysisApp:
             label_widget.grid(row=i//3, column=(i%3)*2 + 1, padx=5, pady=5)
             self.sensor_label_widgets[label_text] = label_widget
 
-        # Prediction Result Frame
         self.real_time_prediction_frame = ttk.LabelFrame(self.real_time_tab, text="Real-Time Prediction")
         self.real_time_prediction_frame.pack(fill=tk.X, padx=10, pady=10)
 
@@ -492,7 +485,6 @@ class SensorAnalysisApp:
         self.real_time_probability_label = ttk.Label(self.real_time_prediction_frame, text="0%")
         self.real_time_probability_label.pack(padx=10, pady=5)
 
-        # Monitoring control flags and queue
         self.monitoring_active = False
         self.monitoring_queue = queue.Queue()
         self.monitoring_thread = None
@@ -519,7 +511,6 @@ class SensorAnalysisApp:
                     # TODO: Replace with actual sensor data acquisition
                     sensor_data = self.generate_simulated_sensor_data()
 
-                # Make prediction if model is available
                 if self.model is not None:
                     prediction_data = pd.DataFrame([{
                         'battery_voltage': sensor_data['Battery Voltage'],
@@ -545,10 +536,9 @@ class SensorAnalysisApp:
                     prediction = [0]
                     prediction_proba = [[0, 0]]
 
-                # Put data and prediction to queue
                 self.monitoring_queue.put((sensor_data, prediction[0], prediction_proba[0][1]))
 
-                # Sleep for specified sampling rate
+
                 time.sleep(self.sampling_rate_var.get())
 
             except Exception as e:
@@ -561,17 +551,14 @@ class SensorAnalysisApp:
             while not self.monitoring_queue.empty():
                 sensor_data, prediction, probability = self.monitoring_queue.get_nowait()
 
-                # Update sensor reading labels
                 for label, value in sensor_data.items():
                     self.sensor_value_vars[label].set(str(value))
 
-                # Update prediction
                 if prediction == 1:
                     self.real_time_prediction_label.config(text="⚠️ FAILURE PREDICTED", foreground="red")
                 else:
                     self.real_time_prediction_label.config(text="✓ NO FAILURE PREDICTED", foreground="green")
 
-                # Update probability
                 prob_percentage = probability * 100
                 self.real_time_probability_bar['value'] = prob_percentage
                 self.real_time_probability_label.config(text=f"{prob_percentage:.1f}%")
@@ -579,7 +566,7 @@ class SensorAnalysisApp:
         except queue.Empty:
             pass
 
-        # Schedule next update if monitoring is active
+
         if self.monitoring_active:
             self.root.after(500, self.update_real_time_display)
 
@@ -589,23 +576,18 @@ class SensorAnalysisApp:
             messagebox.showwarning("Warning", "Please train a model first.")
             return
 
-        # Check if monitoring is already active
         if self.monitoring_active:
             return
 
-        # Prepare for monitoring
         self.monitoring_active = True
         self.monitoring_queue = queue.Queue()
 
-        # Update button states
         self.start_monitor_button.config(state=tk.DISABLED)
         self.stop_monitor_button.config(state=tk.NORMAL)
 
-        # Start monitoring thread
         self.monitoring_thread = threading.Thread(target=self.real_time_monitoring_thread, daemon=True)
         self.monitoring_thread.start()
 
-        # Start display update
         self.update_real_time_display()
 
     def stop_real_time_monitoring(self):
